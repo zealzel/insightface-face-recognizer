@@ -11,9 +11,10 @@ class FaceDatabase:
         """
         初始化資料庫連線，並建立資料表（若不存在則自動建立）。
         資料表包含欄位：name (人名, 作為 PRIMARY KEY)、embedding (人臉向量, BLOB 儲存) 與 count (累計張數)
+        使用 check_same_thread=False 允許跨執行緒使用該連線。
         """
         self.db_path = db_path
-        self.conn = sqlite3.connect(self.db_path)
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.create_table()
 
     def create_table(self):
@@ -138,6 +139,16 @@ class FaceDatabase:
                 print(f"處理 {person} 的資料...")
                 self.add_person_from_folder(person, person_folder)
 
+    def list_persons(self):
+        """
+        取得資料庫中所有人員的名稱清單。
+        :return: 一個包含所有人名的列表。
+        """
+        cur = self.conn.cursor()
+        cur.execute("SELECT name FROM face_database")
+        names = [row[0] for row in cur.fetchall()]
+        return names
+
     def close(self):
         self.conn.close()
 
@@ -147,20 +158,20 @@ if __name__ == "__main__":
     db = FaceDatabase()
 
     # 模擬一個隨機人臉向量 (這裡使用 512 維向量，實際維度依模型而定)
-    embedding1 = np.random.rand(512)
-    embedding1 = embedding1 / np.linalg.norm(embedding1)
-    db.insert_or_update_person("Alice", embedding1)
-
-    # 模擬新增同一個人的另一筆人臉資料
-    embedding2 = np.random.rand(512)
-    embedding2 = embedding2 / np.linalg.norm(embedding2)
-    db.insert_or_update_person("Alice", embedding2)
-
-    # 模擬新增另一個人
-    embedding3 = np.random.rand(512)
-    embedding3 = embedding3 / np.linalg.norm(embedding3)
-    db.insert_or_update_person("Bob", embedding3)
-
+    # embedding1 = np.random.rand(512)
+    # embedding1 = embedding1 / np.linalg.norm(embedding1)
+    # db.insert_or_update_person("Alice", embedding1)
+    #
+    # # 模擬新增同一個人的另一筆人臉資料
+    # embedding2 = np.random.rand(512)
+    # embedding2 = embedding2 / np.linalg.norm(embedding2)
+    # db.insert_or_update_person("Alice", embedding2)
+    #
+    # # 模擬新增另一個人
+    # embedding3 = np.random.rand(512)
+    # embedding3 = embedding3 / np.linalg.norm(embedding3)
+    # db.insert_or_update_person("Bob", embedding3)
+    #
     records = db.get_all_records()
     for rec in records:
         print(f"姓名: {rec[0]}, 總張數: {rec[2]}")
@@ -168,6 +179,10 @@ if __name__ == "__main__":
     root_folder = (
         "/Users/zealzel/Documents/Codes/Current/ai/machine-vision/face_database_images"
     )
-    db.add_multiple_person_from_folder(root_folder)
+    # db.add_multiple_person_from_folder(root_folder)
 
-    db.close()
+    # 顯示資料庫中所有人員名稱
+    names = db.list_persons()
+    print("資料庫中所有人員：", names)
+
+    # db.close()
