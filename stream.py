@@ -6,7 +6,7 @@ from insightface.app import FaceAnalysis
 # 猴子補丁：解決 np.int 別名問題
 np.int = int
 
-# 初始化 FaceAnalysis，這裡使用 CoreMLExecutionProvider 和 CPUExecutionProvider
+# 初始化 FaceAnalysis，這裡使用 CoreMLExecutionProvider 和 CPUExecutionProvidee
 app = FaceAnalysis(providers=["CoreMLExecutionProvider", "CPUExecutionProvider"])
 # 設定檢測尺寸（根據需要可以調整）
 app.prepare(ctx_id=0, det_size=(640, 640))
