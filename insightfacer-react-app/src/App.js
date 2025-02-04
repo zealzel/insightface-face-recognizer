@@ -27,8 +27,6 @@ function App() {
             formData.append("frame", blob, "frame.jpg");
 
             // fetch("http://127.0.0.1:5000/recognize", {
-            // fetch("http://127.0.0.1:5000/recognize", {
-            // fetch("http://127.0.0.1:5000/recognize", {
             fetch("/recognize", {
               method: "POST",
               body: formData,
