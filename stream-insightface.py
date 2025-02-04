@@ -5,6 +5,7 @@ import os
 from flask import Flask, Response, render_template_string
 import insightface
 from insightface.app import FaceAnalysis
+import pickle
 
 # 開啟攝像頭
 video_capture = cv2.VideoCapture(0)
@@ -21,6 +22,51 @@ app = Flask(__name__)
 # 建立人臉資料庫 (利用資料夾中的圖片)
 ############################
 face_database = {}
+
+# 資料庫檔案名稱，可依需求修改
+FACE_DATABASE_FILE = "face_database.pkl"
+
+
+def save_face_database(db, filename=FACE_DATABASE_FILE):
+    """將人臉資料庫透過 pickle 儲存"""
+    with open(filename, "wb") as f:
+        pickle.dump(db, f)
+    print(f"人臉資料庫已儲存至 {filename}")
+
+
+def load_face_database(filename=FACE_DATABASE_FILE):
+    """嘗試從檔案載入人臉資料庫，若不存在則回傳 None"""
+    try:
+        with open(filename, "rb") as f:
+            db = pickle.load(f)
+        print(f"從 {filename} 載入人臉資料庫成功")
+        return db
+    except FileNotFoundError:
+        print(f"找不到 {filename}，將建立新的資料庫")
+        return None
+
+
+def build_face_database(database_dir):
+    """遍歷資料夾建立人臉資料庫 (每個子資料夾名稱視為人名)"""
+    db = {}
+    for person_name in os.listdir(database_dir):
+        person_folder = os.path.join(database_dir, person_name)
+        if not os.path.isdir(person_folder):
+            continue
+        embeddings = []
+        for filename in os.listdir(person_folder):
+            img_path = os.path.join(person_folder, filename)
+            emb = extract_face_embedding(img_path)
+            if emb is not None:
+                embeddings.append(emb)
+        if embeddings:
+            avg_embedding = np.mean(embeddings, axis=0)
+            norm = np.linalg.norm(avg_embedding)
+            if norm != 0:
+                avg_embedding = avg_embedding / norm
+            db[person_name] = avg_embedding
+            print(f"建立 {person_name} 資料成功，樣本數：{len(embeddings)}")
+    return db
 
 
 def extract_face_embedding(img_path):
@@ -49,23 +95,10 @@ database_dir = (
     "/Users/zealzel/Documents/Codes/Current/ai/machine-vision/face_database_images"
 )
 
-for person_name in os.listdir(database_dir):
-    person_folder = os.path.join(database_dir, person_name)
-    if not os.path.isdir(person_folder):
-        continue
-    embeddings = []
-    for filename in os.listdir(person_folder):
-        img_path = os.path.join(person_folder, filename)
-        emb = extract_face_embedding(img_path)
-        if emb is not None:
-            embeddings.append(emb)
-    if embeddings:
-        avg_embedding = np.mean(embeddings, axis=0)
-        norm = np.linalg.norm(avg_embedding)
-        if norm != 0:
-            avg_embedding = avg_embedding / norm
-        face_database[person_name] = avg_embedding
-        print(f"建立 {person_name} 資料成功，樣本數：{len(embeddings)}")
+face_database = load_face_database()
+if face_database is None:
+    face_database = build_face_database(database_dir)
+    save_face_database(face_database)
 
 
 def cosine_similarity(vec1, vec2):
@@ -132,10 +165,20 @@ def index():
     <html>
         <head>
             <title>Face Recognition Stream (insightface)</title>
+            <style>
+                /* 確保圖片保持原始比例，不會被拉伸 */
+                img {
+                    max-width: 640px;
+                    width: 100%;
+                    height: auto;
+                    display: block;
+                    margin: 0 auto;
+                }
+            </style>
         </head>
         <body>
             <h1>Face Recognition Stream (insightface)</h1>
-            <img src="/video_feed" width="640" height="480">
+            <img src="/video_feed">
         </body>
     </html>
     """
@@ -150,4 +193,3 @@ def video_feed():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
