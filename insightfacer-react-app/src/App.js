@@ -17,7 +17,8 @@ function App() {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, canvas.width / 2, canvas.height / 2);
 
         // 將 canvas 內容轉成 blob (JPEG 格式)，送往後端辨識
         canvas.toBlob((blob) => {
@@ -25,7 +26,10 @@ function App() {
             const formData = new FormData();
             formData.append("frame", blob, "frame.jpg");
 
-            fetch("http://127.0.0.1:5000/recognize", {
+            // fetch("http://127.0.0.1:5000/recognize", {
+            // fetch("http://127.0.0.1:5000/recognize", {
+            // fetch("http://127.0.0.1:5000/recognize", {
+            fetch("/recognize", {
               method: "POST",
               body: formData,
             })
