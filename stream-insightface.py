@@ -2,11 +2,20 @@ import cv2
 import time
 import numpy as np
 import os
-from flask import Flask, Response, render_template_string, request, jsonify
+from flask import Flask, Response, render_template, request, jsonify
 import insightface
 from insightface.app import FaceAnalysis
 from face_db_sqlite import FaceDatabase
 import base64
+
+from PIL import Image, ImageDraw, ImageFont
+
+try:
+    # 請依你的系統修改中文字型路徑，以下是 MacOS 的範例
+    chinese_font = ImageFont.truetype("/System/Library/Fonts/STHeiti Medium.ttc", 20)
+except Exception as e:
+    print("PIL load font failed:", e)
+    chinese_font = None
 
 # 開啟攝像頭
 video_capture = cv2.VideoCapture(0)
@@ -41,6 +50,9 @@ def gen_frames():
         if not ret:
             break
 
+        # 儲存所有要繪製的文字資料，格式：(文字, (x,y)座標)
+        texts = []
+
         # 使用 insightface 偵測人臉，輸入影像使用 BGR 格式
         faces = fa.get(frame)
         for face in faces:
@@ -73,15 +85,34 @@ def gen_frames():
             else:
                 name = best_match
 
-            # 在影像上標記偵測到的人臉框與姓名
+            # 在影像上標記偵測到的人臉框 (使用 cv2 畫矩形)
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
             cv2.rectangle(
                 frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED
             )
-            font = cv2.FONT_HERSHEY_DUPLEX
-            cv2.putText(
-                frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1
-            )
+
+            # 儲存文字與座標，待會用 PIL 畫中文
+            texts.append((name, (left + 6, bottom - 30)))
+
+        # 如果有中文字型，轉換整張影像到 PIL，並用 PIL 畫文字，再轉回 cv2 格式
+        if chinese_font is not None and texts:
+            pil_img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            draw = ImageDraw.Draw(pil_img)
+            for t, pos in texts:
+                draw.text(pos, t, font=chinese_font, fill=(255, 255, 255))
+            frame = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        else:
+            # 無中文字型則回退使用 cv2.putText() (可能無法正確顯示中文)
+            for t, pos in texts:
+                cv2.putText(
+                    frame,
+                    t,
+                    pos,
+                    cv2.FONT_HERSHEY_DUPLEX,
+                    1.0,
+                    (255, 255, 255),
+                    1,
+                )
 
         # 將處理後的影像編碼成 JPEG 格式
         ret2, buffer = cv2.imencode(".jpg", frame)
@@ -92,28 +123,7 @@ def gen_frames():
 # 主頁面，嵌入串流畫面
 @app.route("/")
 def index():
-    html = """
-    <html>
-        <head>
-            <title>Face Recognition Stream (insightface)</title>
-            <style>
-                /* 確保圖片保持原始比例，不會被拉伸 */
-                img {
-                    max-width: 640px;
-                    width: 100%;
-                    height: auto;
-                    display: block;
-                    margin: 0 auto;
-                }
-            </style>
-        </head>
-        <body>
-            <h1>Face Recognition Stream (insightface)</h1>
-            <img src="/video_feed">
-        </body>
-    </html>
-    """
-    return render_template_string(html)
+    return render_template("index.html")
 
 
 # 串流路由
@@ -124,94 +134,7 @@ def video_feed():
 
 @app.route("/register")
 def register():
-    html = """
-    <html>
-        <head>
-            <title>新增人臉註冊</title>
-            <script>
-                let video;
-                let canvas;
-                let context;
-                let capturedImages = [];
-                const maxCaptures = 12;
-                // 約10秒內捕捉12張照片，每張間隔約833毫秒
-                const frameInterval = 833;
-                let captureCount = 0;
-
-                function startRegistration() {
-                    capturedImages = [];
-                    captureCount = 0;
-                    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-                        .then(function(stream) {
-                            video.srcObject = stream;
-                            video.play();
-                            captureFrames();
-                        })
-                        .catch(function(err) {
-                            console.log("Error: " + err);
-                        });
-                }
-
-                function captureFrames() {
-                    if (captureCount < maxCaptures) {
-                        setTimeout(function() {
-                            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            let dataURL = canvas.toDataURL('image/jpeg');
-                            capturedImages.push(dataURL);
-                            captureCount++;
-                            captureFrames();
-                        }, frameInterval);
-                    } else {
-                        // 停止影像串流
-                        let stream = video.srcObject;
-                        let tracks = stream.getTracks();
-                        tracks.forEach(track => track.stop());
-                        video.srcObject = null;
-                        uploadRegistration();
-                    }
-                }
-
-                function uploadRegistration() {
-                    const name = document.getElementById('username').value;
-                    if (!name) {
-                        alert("請輸入姓名！");
-                        return;
-                    }
-                    fetch('/upload_registration', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ name: name, images: capturedImages })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        alert(data.message);
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                    });
-                }
-
-                window.onload = function() {
-                    video = document.getElementById('video');
-                    canvas = document.getElementById('canvas');
-                    context = canvas.getContext('2d');
-                }
-            </script>
-        </head>
-        <body>
-            <h1>新增人臉註冊</h1>
-            <p>請輸入您的姓名，並在10秒內轉動頭部以捕捉12張照片。</p>
-            姓名：<input type="text" id="username">
-            <button onclick="startRegistration()">開始註冊</button>
-            <br>
-            <video id="video" width="640" height="480" autoplay style="display:none;"></video>
-            <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
-        </body>
-    </html>
-    """
-    return render_template_string(html)
+    return render_template("register.html")
 
 
 @app.route("/upload_registration", methods=["POST"])

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta charset="UTF-8">
+    <title>新增人臉註冊</title>
+    <script>
+        let video;
+        let canvas;
+        let context;
+        let capturedImages = [];
+        const maxCaptures = 12;
+        // 約10秒內捕捉12張照片，每張間隔約833毫秒
+        const frameInterval = 833;
+        let captureCount = 0;
+
+        function startRegistration() {
+            capturedImages = [];
+            captureCount = 0;
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    video.play();
+                    captureFrames();
+                })
+                .catch(function(err) {
+                    console.log("Error: " + err);
+                });
+        }
+
+        function captureFrames() {
+            if (captureCount < maxCaptures) {
+                setTimeout(function() {
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    let dataURL = canvas.toDataURL('image/jpeg');
+                    capturedImages.push(dataURL);
+                    captureCount++;
+                    captureFrames();
+                }, frameInterval);
+            } else {
+                // 停止影像串流
+                let stream = video.srcObject;
+                let tracks = stream.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+                uploadRegistration();
+            }
+        }
+
+        function uploadRegistration() {
+            const name = document.getElementById('username').value;
+            if (!name) {
+                alert("請輸入姓名！");
+                return;
+            }
+            fetch('/upload_registration', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name: name, images: capturedImages })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        window.onload = function() {
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            context = canvas.getContext('2d');
+        }
+    </script>
+</head>
+<body>
+    <h1>新增人臉註冊</h1>
+    <p>請輸入您的姓名，並在10秒內轉動頭部以捕捉12張照片。</p>
+    姓名：<input type="text" id="username">
+    <button onclick="startRegistration()">開始註冊</button>
+    <br>
+    <video id="video" width="640" height="480" autoplay style="display:none;"></video>
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+</body>
+</html> 
