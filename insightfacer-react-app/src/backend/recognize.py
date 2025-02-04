@@ -3,6 +3,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 import insightface
 from insightface.app import FaceAnalysis
+from face_db_sqlite import FaceDatabase
 
 # 初始化 insightface 模型
 fa = FaceAnalysis()
@@ -29,18 +30,46 @@ def recognize():
     # 使用 insightface 進行人臉偵測
     faces = fa.get(img)
     recognized_data = []
+    threshold = 0.5
+
+    face_db = FaceDatabase()
+    records = face_db.get_all_records()  # 預期格式：[(name, embedding, count), ...]
+    # face_database = {name: np.array(embedding) for name, embedding, count in records}
+    face_database = {name: embedding for name, embedding, count in records}
 
     for face in faces:
-        bbox = face.bbox  # bbox 格式為 [x1, y1, x2, y2]
-        left = int(bbox[0])
-        top = int(bbox[1])
-        right = int(bbox[2])
-        bottom = int(bbox[3])
+        # 取得 bounding box，格式為 [x1, y1, x2, y2]
+        bbox = face.bbox
+        left, top, right, bottom = (
+            int(bbox[0]),
+            int(bbox[1]),
+            int(bbox[2]),
+            int(bbox[3]),
+        )
+        face_embedding = face.embedding
+        norm = np.linalg.norm(face_embedding)
+        if norm == 0:
+            continue
+        embedding = face_embedding / norm
 
-        # 若有比對資料庫，可在此加入比較邏輯，目前直接回傳 "Unknown"
+        # 與 SQLite 資料庫比對 (使用從資料庫取得的 vector)
+        best_match = "Unknown"
+        best_score = -1
+        for person, db_embedding in face_database.items():
+            score = np.dot(embedding, db_embedding) / (
+                np.linalg.norm(embedding) * np.linalg.norm(db_embedding)
+            )
+            if score > best_score:
+                best_score = score
+                best_match = person
+        if best_score < threshold:
+            best_name = "Unknown"
+        else:
+            best_name = best_match
+
         recognized_data.append(
             {
-                "name": "Unknown",
+                "name": best_name,
                 "location": {
                     "top": top,
                     "right": right,
@@ -55,4 +84,3 @@ def recognize():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
