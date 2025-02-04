@@ -1,77 +1,96 @@
-import React, { useRef, useEffect, useState } from "react";
-import VideoStream from "./components/VideoStream";
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import Webcam from "react-webcam";
 
 function App() {
-  const videoRef = useRef(null); // 從 VideoStream 存取 video 元素
-  const canvasRef = useRef(null); // 用來捕捉影像的隱藏 canvas
-  const [recognitionResult, setRecognitionResult] = useState(null);
-  const [error, setError] = useState("");
+  const webcamRef = useRef(null);
+  const [result, setResult] = useState(null);
+  const [recognizedFaces, setRecognizedFaces] = useState([]);
 
-  // 捕捉畫面並呼叫後端辨識 API
-  const captureAndRecognize = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      // 若 video 畫面準備好，則設定 canvas 大小
-      if (video.videoWidth && video.videoHeight) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d");
-        // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width / 2, canvas.height / 2);
+  const capture = React.useCallback(async () => {
+    // 使用較低解析度進行截圖
+    const imageSrc = webcamRef.current.getScreenshot({
+      width: 320,
+      height: 240,
+    });
+    const videoWidth = webcamRef.current.video.videoWidth;
+    const videoHeight = webcamRef.current.video.videoHeight;
 
-        // 將 canvas 內容轉成 blob (JPEG 格式)，送往後端辨識
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const formData = new FormData();
-            formData.append("frame", blob, "frame.jpg");
+    // console.log("Frontend Image Dimensions:", videoWidth, videoHeight); // 應該是 640x480
 
-            // fetch("http://127.0.0.1:5000/recognize", {
-            fetch("/recognize", {
-              method: "POST",
-              body: formData,
-            })
-              .then((response) => response.json())
-              .then((data) => {
-                setRecognitionResult(data);
-                setError("");
-              })
-              .catch((err) => {
-                console.error("辨識錯誤:", err);
-                setError(err.message);
-              });
-          }
-        }, "image/jpeg");
-      }
+    try {
+      // const response = await fetch("http://localhost:5000/recognize", {
+      const response = await fetch("http://127.0.0.1:5000/recognize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image: imageSrc,
+          width: 320, // 傳送縮小後的寬度
+          height: 240, // 傳送縮小後的高度
+        }),
+      });
+      const data = await response.json();
+      console.log("data", data);
+      setRecognizedFaces(data.recognizedData || []);
+    } catch (error) {
+      console.error("Error recognizing face:", error);
     }
-  };
+  }, [webcamRef]);
 
-  // 每秒呼叫一次 captureAndRecognize 進行辨識
   useEffect(() => {
-    const intervalId = setInterval(captureAndRecognize, 1000);
+    const intervalId = setInterval(() => {
+      capture();
+    }, 100); // 調整為每1秒偵測一次
     return () => clearInterval(intervalId);
-  }, []);
+  }, [capture]);
 
   return (
-    <div>
-      <h1>人臉辨識 App</h1>
-      <div style={{ position: "relative" }}>
-        {/* 將 videoRef 傳給 VideoStream */}
-        <VideoStream videoRef={videoRef} />
-        {/* 隱藏的 canvas 用來捕捉 video 畫面 */}
-        <canvas ref={canvasRef} style={{ display: "none" }} />
-      </div>
-      <div>
-        <h2>辨識結果</h2>
-        {error ? (
-          <p style={{ color: "red" }}>錯誤：{error}</p>
-        ) : (
-          <pre>
-            {recognitionResult
-              ? JSON.stringify(recognitionResult, null, 2)
-              : "無結果"}
-          </pre>
-        )}
+    <div style={{ textAlign: "center", position: "relative" }}>
+      <h1>Face Recognition</h1>
+      <div style={{ position: "relative", display: "inline-block" }}>
+        <Webcam
+          audio={false}
+          ref={webcamRef}
+          screenshotFormat="image/jpeg"
+          width={640} // 顯示的寬度
+          height={480} // 顯示的高度
+          style={{ position: "relative" }}
+        />
+        {recognizedFaces.map((face, index) => {
+          // 計算縮放比例
+          const scaleX = 640 / 320; // 2
+          const scaleY = 480 / 240; // 2
+
+          // 根據比例調整坐標
+          const top = face.location.top * scaleY;
+          const left = face.location.left * scaleX;
+          const width = (face.location.right - face.location.left) * scaleX;
+          const height = (face.location.bottom - face.location.top) * scaleY;
+
+          return (
+            <div
+              key={index}
+              style={{
+                position: "absolute",
+                border: "2px solid red",
+                top: `${top}px`,
+                left: `${left}px`,
+                width: `${width}px`,
+                height: `${height}px`,
+                color: "white",
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                fontSize: "14px",
+                fontWeight: "bold",
+                textAlign: "center",
+                lineHeight: "1",
+                padding: "2px",
+              }}
+            >
+              {face.name}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

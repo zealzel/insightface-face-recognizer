@@ -1,28 +1,42 @@
 import cv2
 import numpy as np
-from flask import Flask, request, jsonify
-import insightface
 from insightface.app import FaceAnalysis
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from face_db_sqlite import FaceDatabase
+import base64
 
 # 初始化 insightface 模型
 fa = FaceAnalysis()
 fa.prepare(ctx_id=0, det_size=(640, 640))
 
+
 app = Flask(__name__)
+CORS(app)
+
+# 從資料庫中動態取得最新的已註冊人臉向量 (參考 face_db_sqlite.py)
+face_db = FaceDatabase()
+records = face_db.get_all_records()  # 預期格式：[(name, embedding, count), ...]
+
+# 假設存入的 embedding 已是 numpy array 格式
+face_database = {name: embedding for name, embedding, count in records}
 
 
 @app.route("/recognize", methods=["POST"])
 def recognize():
-    # 檢查是否有上傳 frame 檔案（以 FormData 傳送）
-    if "frame" not in request.files:
-        return jsonify({"error": "No frame provided"}), 400
+    data = request.get_json()
+    image_data = data["image"]
+    width = data["width"]
+    height = data["height"]
 
-    # 讀取上傳的影像
-    file = request.files["frame"]
-    file_bytes = file.read()
-    nparr = np.frombuffer(file_bytes, np.uint8)
+    # 解碼圖片
+    image_bytes = base64.b64decode(image_data.split(",")[1])
+    nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    # 調整圖片大小
+    img = cv2.resize(img, (width, height))
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     if img is None:
         return jsonify({"error": "Image decoding failed"}), 400
@@ -31,11 +45,6 @@ def recognize():
     faces = fa.get(img)
     recognized_data = []
     threshold = 0.5
-
-    face_db = FaceDatabase()
-    records = face_db.get_all_records()  # 預期格式：[(name, embedding, count), ...]
-    # face_database = {name: np.array(embedding) for name, embedding, count in records}
-    face_database = {name: embedding for name, embedding, count in records}
 
     for face in faces:
         # 取得 bounding box，格式為 [x1, y1, x2, y2]
@@ -67,6 +76,7 @@ def recognize():
         else:
             best_name = best_match
 
+        # 當前將辨識結果存入 list
         recognized_data.append(
             {
                 "name": best_name,
@@ -79,8 +89,10 @@ def recognize():
             }
         )
 
+    # 回傳辨識結果及標記後的圖片（含 data URI 前置字串）
     return jsonify({"recognizedData": recognized_data})
 
 
 if __name__ == "__main__":
+    print("start")
     app.run(host="0.0.0.0", port=5000)
