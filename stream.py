@@ -15,6 +15,7 @@ import numpy as np
 import time
 from insightface.app import FaceAnalysis
 from face_db_sqlite import FaceDatabase
+from concurrent.futures import ThreadPoolExecutor
 
 
 def load_face_database():
@@ -40,9 +41,19 @@ def main():
         sys.exit(1)
     video_path = sys.argv[1]
     cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        print("Error: 無法開啟影片檔案:", video_path)
-        sys.exit(1)
+    # 根據影片幀率設定延遲
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps <= 0:
+        fps = 25  # 預設值
+    delay = int(1000 / fps)
+
+    # 使用 ThreadPoolExecutor 進行非同步人臉偵測
+    executor = ThreadPoolExecutor(max_workers=1)
+    detection_future = None
+    last_detection_time = time.time()
+    # detection_interval = 0.1  # 辨識間隔 0.1 秒
+    detection_interval = 0.2  # 辨識間隔 0.1 秒
+    faces_detected = []
 
     # 初始化 insightface 模型（使用與 recognize.py 同樣的 providers 設定）
     fa = FaceAnalysis(providers=["CoreMLExecutionProvider", "CPUExecutionProvider"])
@@ -58,14 +69,28 @@ def main():
         ret, frame = cap.read()
         if not ret:
             break
-        # 轉換成 RGB 以供模型分析
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        faces = fa.get(rgb_frame)
-        for face in faces:
-            # 取得 bounding box
+
+        current_time = time.time()
+        # 每隔 detection_interval 秒提交一次辨識任務，且只有上一個辨識任務完成時再重送
+        if current_time - last_detection_time >= detection_interval:
+            if detection_future is None or detection_future.done():
+                detection_future = executor.submit(
+                    fa.get, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                )
+                last_detection_time = current_time
+
+        # 嘗試取得非同步辨識結果（若尚未完成則保留舊結果）
+        if detection_future is not None and detection_future.done():
+            try:
+                faces_detected = detection_future.result()
+            except Exception as e:
+                print("Detection error:", e)
+                faces_detected = []
+
+        # 根據最新的 faces_detected 畫出 overlay
+        for face in faces_detected:
             bbox = face.bbox  # [x1, y1, x2, y2]
             left, top, right, bottom = map(int, bbox)
-            # 取得人臉 embedding 並正規化
             face_embedding = face.embedding
             norm = np.linalg.norm(face_embedding)
             if norm != 0:
@@ -75,15 +100,10 @@ def main():
 
             best_score = -1
             best_name = "Unknown"
-            # 對照資料庫中每筆紀錄，比對 cosine 相似度
             for person, db_embedding in face_database.items():
-                # 如果 embedding 的 shape 與資料庫中的不一致，則跳過該筆比對
+                # 如果 embedding 維度不符則跳過比對
                 if embedding.shape != db_embedding.shape:
-                    print(
-                        f"Warning: embedding shape mismatch for {person}, expected {embedding.shape} but got {db_embedding.shape}"
-                    )
                     continue
-                # 計算 cosine 相似度
                 score = np.dot(embedding, db_embedding) / (
                     np.linalg.norm(embedding) * np.linalg.norm(db_embedding)
                 )
@@ -92,8 +112,6 @@ def main():
                     best_name = person
             if best_score < threshold:
                 best_name = "Unknown"
-
-            # 畫出 bounding box 與名稱
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
             cv2.putText(
                 frame,
@@ -104,13 +122,12 @@ def main():
                 (0, 255, 0),
                 2,
             )
+
         cv2.imshow("Face Recognition", frame)
-        key = cv2.waitKey(1) & 0xFF
+        # key = cv2.waitKey(1) & 0xFF
+        key = cv2.waitKey(delay) & 0xFF
         if key == ord("q"):
             break
-
-    cap.release()
-    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
