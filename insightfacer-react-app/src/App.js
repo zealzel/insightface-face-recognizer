@@ -10,6 +10,7 @@ function App() {
   const [message, setMessage] = useState("");
   const [capturedImages, setCapturedImages] = useState([]);
   const [mode, setMode] = useState("recognition"); // "recognition" 或 "registration"
+  const capturedImagesRef = useRef([]);
 
   const maxCaptures = 12;
   const frameInterval = 833; // 約833毫秒間隔，共捕捉 12 張約 10 秒
@@ -50,33 +51,34 @@ function App() {
   const startCapture = () => {
     setCapturing(true);
     setCapturedImages([]);
+    capturedImagesRef.current = [];
     let captureCount = 0;
     const captureInterval = setInterval(() => {
       if (captureCount < maxCaptures) {
         // 採用 full resolution 進行截圖
         const imageSrc = webcamRef.current.getScreenshot();
         console.log("imageSrc", imageSrc);
-        setCapturedImages((prevImages) => [...prevImages, imageSrc]);
+        capturedImagesRef.current.push(imageSrc);
+        setCapturedImages([...capturedImagesRef.current]);
         captureCount++;
         console.log("captureCount", captureCount);
       } else {
         clearInterval(captureInterval);
         setCapturing(false);
-        uploadRegistration();
+        uploadRegistration(capturedImagesRef.current);
       }
     }, frameInterval);
   };
 
-  const uploadRegistration = async () => {
+  const uploadRegistration = async (imagesArray) => {
     try {
-      // const response = await fetch("/upload_registration", {
-      console.log("capturedImages", capturedImages);
+      console.log("capturedImages", imagesArray);
       const response = await fetch(
         "http://127.0.0.1:5000/upload_registration",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name, images: capturedImages }),
+          body: JSON.stringify({ name: name, images: imagesArray }),
         },
       );
       const data = await response.json();
@@ -163,8 +165,17 @@ function App() {
             {capturing ? "錄影中..." : "開始註冊"}
           </button>
           {message && <p>{message}</p>}
-          <div style={{ display: "none" }}>
-            <Webcam ref={webcamRef} screenshotFormat="image/jpeg" />
+          <div
+            style={{ position: "absolute", top: "-10000px", left: "-10000px" }}
+          >
+            <Webcam
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              videoConstraints={{
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+              }}
+            />
           </div>
         </div>
       )}

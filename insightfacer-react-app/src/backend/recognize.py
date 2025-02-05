@@ -133,6 +133,7 @@ def upload_registration():
                 continue
             embeddings.append(emb / norm_val)
 
+    print("embeddings", embeddings)
     if embeddings:
         avg_embedding = np.mean(embeddings, axis=0)
         norm_val = np.linalg.norm(avg_embedding)
