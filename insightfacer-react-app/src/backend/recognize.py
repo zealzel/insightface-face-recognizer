@@ -13,6 +13,7 @@ fa.prepare(ctx_id=0, det_size=(640, 640))
 
 app = Flask(__name__)
 CORS(app)
+print("cors!")
 
 # 從資料庫中動態取得最新的已註冊人臉向量 (參考 face_db_sqlite.py)
 face_db = FaceDatabase()
@@ -24,6 +25,7 @@ face_database = {name: embedding for name, embedding, count in records}
 
 @app.route("/recognize", methods=["POST"])
 def recognize():
+    print("recgg")
     data = request.get_json()
     image_data = data["image"]
     width = data["width"]

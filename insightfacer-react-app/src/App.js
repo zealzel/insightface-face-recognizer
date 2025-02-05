@@ -41,7 +41,7 @@ function App() {
   useEffect(() => {
     const intervalId = setInterval(() => {
       capture();
-    }, 100); // 調整為每1秒偵測一次
+    }, 200); // 調整為每1秒偵測一次
     return () => clearInterval(intervalId);
   }, [capture]);
 
