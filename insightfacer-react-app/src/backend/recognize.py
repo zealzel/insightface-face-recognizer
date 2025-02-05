@@ -106,6 +106,10 @@ def upload_registration():
     images_data = data["images"]
     embeddings = []
 
+    print("name", name)
+    print("images_data", images_data)
+
+    print("len(images_data)", len(images_data))
     for img_data in images_data:
         try:
             header, encoded = img_data.split(",", 1)
@@ -117,6 +121,7 @@ def upload_registration():
             continue
 
         if img is None:
+            print("img is Empty!")
             continue
 
         rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

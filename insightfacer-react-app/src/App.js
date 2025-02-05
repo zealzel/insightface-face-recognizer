@@ -12,21 +12,22 @@ function App() {
   const [mode, setMode] = useState("recognition"); // "recognition" 或 "registration"
 
   const maxCaptures = 12;
-  const frameInterval = 833; // 約833毫秒間隔，共捕捉 12 張大約 10 秒
+  const frameInterval = 833; // 約833毫秒間隔，共捕捉 12 張約 10 秒
 
   const capture = React.useCallback(async () => {
-    // 使用較低解析度進行截圖
-    const imageSrc = webcamRef.current.getScreenshot({
-      width: 320,
-      height: 240,
-    });
-    const videoWidth = webcamRef.current.video.videoWidth;
-    const videoHeight = webcamRef.current.video.videoHeight;
-
-    // console.log("Frontend Image Dimensions:", videoWidth, videoHeight); // 應該是 640x480
-
+    let imageSrc;
+    if (mode === "registration") {
+      // 註冊模式下採用全解析度影像（參照 templates/register.html 的做法）
+      imageSrc = webcamRef.current.getScreenshot();
+    } else {
+      // 辨識模式下使用較低解析度來提高效率
+      imageSrc = webcamRef.current.getScreenshot({
+        width: 320,
+        height: 240,
+      });
+    }
+    // 此處可自行確認影像尺寸
     try {
-      // const response = await fetch("http://localhost:5000/recognize", {
       const response = await fetch("http://127.0.0.1:5000/recognize", {
         method: "POST",
         headers: {
@@ -34,8 +35,8 @@ function App() {
         },
         body: JSON.stringify({
           image: imageSrc,
-          width: 320, // 傳送縮小後的寬度
-          height: 240, // 傳送縮小後的高度
+          width: 320,
+          height: 240,
         }),
       });
       const data = await response.json();
@@ -44,17 +45,20 @@ function App() {
     } catch (error) {
       console.error("Error recognizing face:", error);
     }
-  }, [webcamRef]);
+  }, [webcamRef, mode]);
 
   const startCapture = () => {
     setCapturing(true);
     setCapturedImages([]);
     let captureCount = 0;
-
     const captureInterval = setInterval(() => {
       if (captureCount < maxCaptures) {
-        capture();
+        // 採用 full resolution 進行截圖
+        const imageSrc = webcamRef.current.getScreenshot();
+        console.log("imageSrc", imageSrc);
+        setCapturedImages((prevImages) => [...prevImages, imageSrc]);
         captureCount++;
+        console.log("captureCount", captureCount);
       } else {
         clearInterval(captureInterval);
         setCapturing(false);
@@ -66,6 +70,7 @@ function App() {
   const uploadRegistration = async () => {
     try {
       // const response = await fetch("/upload_registration", {
+      console.log("capturedImages", capturedImages);
       const response = await fetch(
         "http://127.0.0.1:5000/upload_registration",
         {
