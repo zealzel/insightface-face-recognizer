@@ -18,10 +18,10 @@ function App() {
   const capture = React.useCallback(async () => {
     let imageSrc;
     if (mode === "registration") {
-      // 註冊模式下採用全解析度影像（參照 templates/register.html 的做法）
+      // 註冊模式：採用全解析度截圖，不傳入 width/height 參數
       imageSrc = webcamRef.current.getScreenshot();
     } else {
-      // 辨識模式下使用較低解析度來提高效率
+      // 辨識模式：採用縮小解析度以加快辨識速度
       imageSrc = webcamRef.current.getScreenshot({
         width: 320,
         height: 240,
@@ -55,7 +55,7 @@ function App() {
     let captureCount = 0;
     const captureInterval = setInterval(() => {
       if (captureCount < maxCaptures) {
-        // 採用 full resolution 進行截圖
+        // 註冊模式下使用 full resolution 截圖（不傳入尺寸參數）
         const imageSrc = webcamRef.current.getScreenshot();
         console.log("imageSrc", imageSrc);
         capturedImagesRef.current.push(imageSrc);
@@ -65,6 +65,7 @@ function App() {
       } else {
         clearInterval(captureInterval);
         setCapturing(false);
+        // 上傳時直接使用 ref 內的圖片陣列
         uploadRegistration(capturedImagesRef.current);
       }
     }, frameInterval);
@@ -149,7 +150,7 @@ function App() {
           })}
         </div>
       ) : (
-        // 註冊模式：隱藏影像、顯示輸入姓名與按鈕
+        // 註冊模式：隱藏影像、顯示輸入姓名與按鈕，以及 Debug 區塊（顯示暫存的拍攝圖片）
         <div>
           <h1>新增人臉註冊</h1>
           <div>
@@ -165,6 +166,27 @@ function App() {
             {capturing ? "錄影中..." : "開始註冊"}
           </button>
           {message && <p>{message}</p>}
+          {/* Debug 區塊：顯示捕捉到的圖片 */}
+          {capturedImages.length > 0 && (
+            <div style={{ marginTop: "20px" }}>
+              <h2>Debug: Captured Images</h2>
+              <div style={{ display: "flex", flexWrap: "wrap" }}>
+                {capturedImages.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img}
+                    alt={`capture ${idx}`}
+                    style={{
+                      width: "160px",
+                      height: "120px",
+                      margin: "5px",
+                      border: "1px solid #ccc",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           <div
             style={{ position: "absolute", top: "-10000px", left: "-10000px" }}
           >
@@ -172,8 +194,8 @@ function App() {
               ref={webcamRef}
               screenshotFormat="image/jpeg"
               videoConstraints={{
-                width: { ideal: 640 },
-                height: { ideal: 480 },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
               }}
             />
           </div>
