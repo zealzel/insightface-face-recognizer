@@ -1,3 +1,11 @@
+import sys
+import os
+
+# 將專案根目錄加入 sys.path
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+)
+
 import cv2
 import numpy as np
 from insightface.app import FaceAnalysis
