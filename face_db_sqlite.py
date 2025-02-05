@@ -5,16 +5,19 @@ import cv2
 import insightface
 import os
 
+# DB_PATH = os.path.join(os.path.dirname(__file__), "face_database.db")
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "face_database.db"))
+print("DB_PATH", DB_PATH)
+
 
 class FaceDatabase:
-    def __init__(self, db_path="face_database.db"):
+    def __init__(self):
         """
         初始化資料庫連線，並建立資料表（若不存在則自動建立）。
         資料表包含欄位：name (人名, 作為 PRIMARY KEY)、embedding (人臉向量, BLOB 儲存) 與 count (累計張數)
         使用 check_same_thread=False 允許跨執行緒使用該連線。
         """
-        self.db_path = db_path
-        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         self.create_table()
 
     def create_table(self):

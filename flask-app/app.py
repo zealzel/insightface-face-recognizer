@@ -1,14 +1,16 @@
-import cv2
-import time
-import numpy as np
+import sys
 import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import cv2
+import numpy as np
 from flask import Flask, Response, render_template, request, jsonify
-import insightface
 from insightface.app import FaceAnalysis
-from face_db_sqlite import FaceDatabase
 import base64
 
 from PIL import Image, ImageDraw, ImageFont
+
+from face_common import find_face, face_db
 
 try:
     # 請依你的系統修改中文字型路徑，以下是 MacOS 的範例
@@ -29,20 +31,6 @@ fa.prepare(ctx_id=0, det_size=(640, 640))
 
 app = Flask(__name__)
 
-############################
-# 建立人臉資料庫 (利用資料夾中的圖片)
-############################
-
-# 從 SQLite 資料庫載入人臉資料庫 (使用 face_db_sqlite.py)
-face_db = FaceDatabase()
-records = face_db.get_all_records()
-# 轉換成 { name: embedding } 格式供後續比對使用
-face_database = {name: embedding for name, embedding, count in records}
-
-
-def cosine_similarity(vec1, vec2):
-    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
-
 
 # 產生串流影像的產生器
 def gen_frames():
@@ -62,29 +50,12 @@ def gen_frames():
             top = int(bbox[1])
             right = int(bbox[2])
             bottom = int(bbox[3])
-
-            # 取得人臉的嵌入向量，並進行正規化
-            embedding = face.embedding
-            norm = np.linalg.norm(embedding)
-            if norm == 0:
-                continue
-            embedding = embedding / norm
-
-            # 與 SQLite 資料庫比對 (使用 preloaded face_database)
-            best_match = "Unknown"
-            best_score = -1
-            for person, db_embedding in face_database.items():
-                score = np.dot(embedding, db_embedding) / (
-                    np.linalg.norm(embedding) * np.linalg.norm(db_embedding)
-                )
-                if score > best_score:
-                    best_score = score
-                    best_match = person
-            threshold = 0.5  # 閾值，可根據需求調整
-            if best_score < threshold:
-                name = "Unknown"
-            else:
-                name = best_match
+            name = find_face(face)
+            print("left", left)
+            print("top", top)
+            print("right", right)
+            print("bottom", bottom)
+            print("name", name)
 
             # 在影像上標記偵測到的人臉框 (使用 cv2 畫矩形)
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
@@ -177,12 +148,6 @@ def upload_registration():
             avg_embedding = avg_embedding / norm_val
         # 使用 face_db 物件更新至 SQLite 資料庫 (已在全域載入)
         face_db.insert_or_update_person(name, avg_embedding, count=len(embeddings))
-
-        # 更新 preloaded face_database 字典，便於後續即時比對
-        records = face_db.get_all_records()
-        global face_database
-        face_database = {n: emb for n, emb, c in records}
-
         return jsonify({"message": "註冊成功"}), 200
     else:
         return jsonify({"message": "未偵測到人臉"}), 400
