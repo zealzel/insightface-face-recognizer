@@ -5,6 +5,14 @@ function App() {
   const webcamRef = useRef(null);
   const [result, setResult] = useState(null);
   const [recognizedFaces, setRecognizedFaces] = useState([]);
+  const [name, setName] = useState("");
+  const [capturing, setCapturing] = useState(false);
+  const [message, setMessage] = useState("");
+  const [capturedImages, setCapturedImages] = useState([]);
+  const [mode, setMode] = useState("recognition"); // "recognition" 或 "registration"
+
+  const maxCaptures = 12;
+  const frameInterval = 833; // 約833毫秒間隔，共捕捉 12 張大約 10 秒
 
   const capture = React.useCallback(async () => {
     // 使用較低解析度進行截圖
@@ -38,60 +46,123 @@ function App() {
     }
   }, [webcamRef]);
 
+  const startCapture = () => {
+    setCapturing(true);
+    setCapturedImages([]);
+    let captureCount = 0;
+
+    const captureInterval = setInterval(() => {
+      if (captureCount < maxCaptures) {
+        capture();
+        captureCount++;
+      } else {
+        clearInterval(captureInterval);
+        setCapturing(false);
+        uploadRegistration();
+      }
+    }, frameInterval);
+  };
+
+  const uploadRegistration = async () => {
+    try {
+      // const response = await fetch("/upload_registration", {
+      const response = await fetch(
+        "http://127.0.0.1:5000/upload_registration",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name, images: capturedImages }),
+        },
+      );
+      const data = await response.json();
+      setMessage(data.message || "註冊完成");
+    } catch (error) {
+      console.error("Registration upload failed:", error);
+      setMessage("上傳失敗");
+    }
+  };
+
   useEffect(() => {
-    const intervalId = setInterval(() => {
-      capture();
-    }, 200); // 調整為每1秒偵測一次
-    return () => clearInterval(intervalId);
-  }, [capture]);
+    if (mode === "recognition") {
+      const intervalId = setInterval(() => {
+        capture();
+      }, 200); // 每200毫秒呼叫一次辨識
+      return () => clearInterval(intervalId);
+    }
+  }, [capture, mode]);
 
   return (
-    <div style={{ textAlign: "center", position: "relative" }}>
-      <h1>Face Recognition</h1>
-      <div style={{ position: "relative", display: "inline-block" }}>
-        <Webcam
-          audio={false}
-          ref={webcamRef}
-          screenshotFormat="image/jpeg"
-          width={640} // 顯示的寬度
-          height={480} // 顯示的高度
-          style={{ position: "relative" }}
-        />
-        {recognizedFaces.map((face, index) => {
-          // 計算縮放比例
-          const scaleX = 640 / 320; // 2
-          const scaleY = 480 / 240; // 2
-
-          // 根據比例調整坐標
-          const top = face.location.top * scaleY;
-          const left = face.location.left * scaleX;
-          const width = (face.location.right - face.location.left) * scaleX;
-          const height = (face.location.bottom - face.location.top) * scaleY;
-
-          return (
-            <div
-              key={index}
-              style={{
-                position: "absolute",
-                border: "2px solid red",
-                top: `${top}px`,
-                left: `${left}px`,
-                width: `${width}px`,
-                height: `${height}px`,
-                color: "white",
-                backgroundColor: "rgba(0, 0, 0, 0.5)",
-                fontSize: "14px",
-                fontWeight: "bold",
-                textAlign: "center",
-                lineHeight: "1",
-                padding: "2px",
-              }}
-            >
-              {face.name}
-            </div>
-          );
-        })}
+    <div style={{ padding: "20px" }}>
+      {/* 模式切換按鈕 */}
+      <div style={{ marginBottom: "10px" }}>
+        <button onClick={() => setMode("recognition")}>辨識模式</button>
+        <button onClick={() => setMode("registration")}>註冊模式</button>
       </div>
+
+      {mode === "recognition" ? (
+        // 辨識模式：顯示即時影像及對應方框標記
+        <div style={{ position: "relative", display: "inline-block" }}>
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            width={640} // 顯示寬度
+            height={480} // 顯示高度
+          />
+          {recognizedFaces.map((face, index) => {
+            // 假設後端傳來的座標根據 320x240 的影像
+            const scaleX = 640 / 320;
+            const scaleY = 480 / 240;
+            const top = face.location.top * scaleY;
+            const left = face.location.left * scaleX;
+            const width = (face.location.right - face.location.left) * scaleX;
+            const height = (face.location.bottom - face.location.top) * scaleY;
+            return (
+              <div
+                key={index}
+                style={{
+                  position: "absolute",
+                  border: "2px solid red",
+                  top: `${top}px`,
+                  left: `${left}px`,
+                  width: `${width}px`,
+                  height: `${height}px`,
+                  color: "white",
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  textAlign: "center",
+                  lineHeight: "1",
+                  padding: "2px",
+                }}
+              >
+                {face.name}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        // 註冊模式：隱藏影像、顯示輸入姓名與按鈕
+        <div>
+          <h1>新增人臉註冊</h1>
+          <div>
+            姓名：
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={capturing}
+            />
+          </div>
+          <button onClick={startCapture} disabled={capturing}>
+            {capturing ? "錄影中..." : "開始註冊"}
+          </button>
+          {message && <p>{message}</p>}
+          <div style={{ display: "none" }}>
+            <Webcam ref={webcamRef} screenshotFormat="image/jpeg" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
