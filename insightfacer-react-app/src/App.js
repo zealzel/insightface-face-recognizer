@@ -188,7 +188,11 @@ function App() {
             </div>
           )}
           <div
-            style={{ position: "absolute", top: "-10000px", left: "-10000px" }}
+            style={{
+              width: "1280px",
+              height: "720px",
+              opacity: 0,
+            }}
           >
             <Webcam
               ref={webcamRef}
