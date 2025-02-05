@@ -29,7 +29,8 @@ function App() {
     }
     // 此處可自行確認影像尺寸
     try {
-      const response = await fetch("http://127.0.0.1:5000/recognize", {
+      // const response = await fetch("http://127.0.0.1:5000/recognize", {
+      const response = await fetch("/recognize", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -94,7 +95,7 @@ function App() {
     if (mode === "recognition") {
       const intervalId = setInterval(() => {
         capture();
-      }, 200); // 每200毫秒呼叫一次辨識
+      }, 100); // 每100毫秒呼叫一次辨識
       return () => clearInterval(intervalId);
     }
   }, [capture, mode]);

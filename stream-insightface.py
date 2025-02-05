@@ -23,7 +23,8 @@ if not video_capture.isOpened():
     raise Exception("攝像頭打開失敗！")
 
 # 初始化 insightface 模型 (FaceAnalysis)
-fa = FaceAnalysis()
+# fa = FaceAnalysis()
+fa = FaceAnalysis(providers=["CoreMLExecutionProvider", "CPUExecutionProvider"])
 fa.prepare(ctx_id=0, det_size=(640, 640))
 
 app = Flask(__name__)

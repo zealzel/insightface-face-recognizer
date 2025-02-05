@@ -7,7 +7,8 @@ from face_db_sqlite import FaceDatabase
 import base64
 
 # 初始化 insightface 模型
-fa = FaceAnalysis()
+# fa = FaceAnalysis()
+fa = FaceAnalysis(providers=["CoreMLExecutionProvider", "CPUExecutionProvider"])
 fa.prepare(ctx_id=0, det_size=(640, 640))
 
 
