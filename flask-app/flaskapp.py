@@ -8,13 +8,8 @@ app = Flask(__name__)
 
 
 def gen_frames():
-    # 初始化 Picamera2 並設定為 NullPreview
     picam2 = Picamera2()
     config = picam2.create_preview_configuration({"size": (640, 480)})
-    # config = picam2.create_preview_configuration(
-    # main={"size": (640, 480)},
-    # preview=NullPreview()
-    # )
     picam2.configure(config)
     picam2.set_controls({"FrameRate": 10})
     picam2.start()
@@ -34,6 +29,8 @@ def gen_frames():
             # 取得影像
             frame = picam2.capture_array()
             # 將影像編碼成 JPEG 格式
+
+            print("frame.shape", frame.shape)
 
             # 將 RGB 轉換為 BGR
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)

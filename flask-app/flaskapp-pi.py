@@ -25,10 +25,9 @@ except Exception as e:
 
 # Initialize Picamera2
 picam2 = Picamera2()
-
 video_config = picam2.create_video_configuration(main={"size": (640, 480)})
 picam2.configure(video_config)
-# picam2.start_preview(NullPreview())
+picam2.set_controls({"FrameRate": 10})
 picam2.start()
 
 # Initialize insightface model (FaceAnalysis)
@@ -47,6 +46,7 @@ def gen_frames():
             continue
 
         # Convert 4-channel (BGRA) image to 3-channel (BGR)
+        print("frame.shape", frame.shape)
         if frame.shape[2] == 4:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
 
