@@ -35,6 +35,8 @@ def gen_frames():
             # 將 RGB 轉換為 BGR
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
+            print("after frame.shape", frame.shape)
+
             ret, buffer = cv2.imencode(".jpg", frame)
             if not ret:
                 continue

@@ -45,10 +45,9 @@ def gen_frames():
         if frame is None:
             continue
 
-        # Convert 4-channel (BGRA) image to 3-channel (BGR)
         print("frame.shape", frame.shape)
-        if frame.shape[2] == 4:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        print("after frame.shape", frame.shape)
 
         # Store text data to draw later (format: (text, (x, y)))
         texts = []
