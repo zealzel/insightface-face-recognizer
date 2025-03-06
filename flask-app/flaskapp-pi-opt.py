@@ -31,7 +31,10 @@ picam2.set_controls({"FrameRate": 10})
 picam2.start()
 
 # Initialize insightface model (FaceAnalysis)
-fa = FaceAnalysis(providers=["CoreMLExecutionProvider", "CPUExecutionProvider"])
+# fa = FaceAnalysis(providers=["CoreMLExecutionProvider", "CPUExecutionProvider"])
+fa = FaceAnalysis(
+    name="buffalo_s", providers=["CoreMLExecutionProvider", "CPUExecutionProvider"]
+)
 # fa.prepare(ctx_id=0, det_size=(640, 640))
 # fa.prepare(ctx_id=0, det_size=(320, 320))
 fa.prepare(ctx_id=0, det_size=(160, 160))

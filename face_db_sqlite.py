@@ -7,6 +7,9 @@ import os
 
 # DB_PATH = os.path.join(os.path.dirname(__file__), "face_database.db")
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "face_database.db"))
+# DB_PATH = os.path.abspath(
+#     os.path.join(os.path.dirname(__file__), "face_database_buffalo_s.db")
+# )
 print("DB_PATH", DB_PATH)
 
 
@@ -97,7 +100,11 @@ class FaceDatabase:
         :param folder_path: 包含該人照片的資料夾路徑
         """
         # 初始化 insightface 模型，這裡僅做一次初始化
-        fa = insightface.app.FaceAnalysis()
+        # fa = insightface.app.FaceAnalysis()
+        fa = insightface.app.FaceAnalysis(
+            name="buffalo_s",
+            providers=["CoreMLExecutionProvider", "CPUExecutionProvider"],
+        )
         fa.prepare(ctx_id=0, det_size=(640, 640))
 
         embeddings = []
