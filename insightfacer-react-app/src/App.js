@@ -145,13 +145,22 @@ function App() {
           />
           <button onClick={handleClick}>Switch camera</button>
           {recognizedFaces.map((face, index) => {
-            // 假設後端傳來的座標根據 320x240 的影像
-            const scaleX = WIDTH / RECOG_WIDTH;
-            const scaleY = HEIGHT / RECOG_HEIGHT;
+            // Get the video element from react-webcam
+            const video = webcamRef.current && webcamRef.current.video;
+            // Use the actual rendered size if available; fallback to your constants otherwise
+            const previewWidth = video ? video.clientWidth : WIDTH;
+            const previewHeight = video ? video.clientHeight : HEIGHT;
+            // Calculate dynamic scale factors based on the recognition resolution (320x240)
+            const scaleX = previewWidth / RECOG_WIDTH;
+            const scaleY = previewHeight / RECOG_HEIGHT;
+
             const top = face.location.top * scaleY;
             const left = face.location.left * scaleX;
-            const width = (face.location.right - face.location.left) * scaleX;
-            const height = (face.location.bottom - face.location.top) * scaleY;
+            const boxWidth =
+              (face.location.right - face.location.left) * scaleX;
+            const boxHeight =
+              (face.location.bottom - face.location.top) * scaleY;
+
             return (
               <div
                 key={index}
@@ -160,8 +169,8 @@ function App() {
                   border: "2px solid red",
                   top: `${top}px`,
                   left: `${left}px`,
-                  width: `${width}px`,
-                  height: `${height}px`,
+                  width: `${boxWidth}px`,
+                  height: `${boxHeight}px`,
                   color: "white",
                   backgroundColor: "rgba(0, 0, 0, 0.5)",
                   fontSize: "14px",
