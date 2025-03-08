@@ -121,7 +121,8 @@ function App() {
     if (mode === "recognition") {
       const intervalId = setInterval(() => {
         capture();
-      }, 100); // 每100毫秒呼叫一次辨識
+      }, 200); // 每100毫秒呼叫一次辨識
+      // }, 100); // 每100毫秒呼叫一次辨識
       return () => clearInterval(intervalId);
     }
   }, [capture, mode]);
