@@ -42,8 +42,11 @@ def recognize():
     image_data = data["image"]
     width = data["width"]
     height = data["height"]
+    recognized_data = []
 
     # 解碼圖片
+    if not image_data:
+        return jsonify({"recognizedData": recognized_data})
     image_bytes = base64.b64decode(image_data.split(",")[1])
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -57,7 +60,6 @@ def recognize():
 
     # 使用 insightface 進行人臉偵測
     faces = fa.get(img)
-    recognized_data = []
     threshold = 0.5
 
     for face in faces:

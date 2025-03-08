@@ -1,15 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import Webcam from "react-webcam";
 
-const FACING_MODE_USER = "user";
-const FACING_MODE_ENVIRONMENT = "environment";
-const WIDTH = 640;
-const HEIGHT = 480;
-// const WIDTH = 1280;
-// const HEIGHT = 760;
-const RECOG_WIDTH = 320;
-const RECOG_HEIGHT = 240;
-
 function App() {
   const webcamRef = useRef(null);
   const [result, setResult] = useState(null);
@@ -20,22 +11,20 @@ function App() {
   const [capturedImages, setCapturedImages] = useState([]);
   const [mode, setMode] = useState("recognition"); // "recognition" 或 "registration"
   const capturedImagesRef = useRef([]);
-  const [facingMode, setFacingMode] = React.useState(FACING_MODE_USER);
 
   const maxCaptures = 12;
   const frameInterval = 833; // 約833毫秒間隔，共捕捉 12 張約 10 秒
 
   const capture = React.useCallback(async () => {
     let imageSrc;
-    imageSrc = webcamRef.current.getScreenshot();
     if (mode === "registration") {
       // 註冊模式：採用全解析度截圖，不傳入 width/height 參數
       imageSrc = webcamRef.current.getScreenshot();
     } else {
       // 辨識模式：採用縮小解析度以加快辨識速度
       imageSrc = webcamRef.current.getScreenshot({
-        width: RECOG_WIDTH,
-        height: RECOG_HEIGHT,
+        width: 320,
+        height: 240,
       });
     }
     // 此處可自行確認影像尺寸
@@ -48,8 +37,8 @@ function App() {
         },
         body: JSON.stringify({
           image: imageSrc,
-          width: RECOG_WIDTH,
-          height: RECOG_HEIGHT,
+          width: 320,
+          height: 240,
         }),
       });
       const data = await response.json();
@@ -59,21 +48,6 @@ function App() {
       console.error("Error recognizing face:", error);
     }
   }, [webcamRef, mode]);
-
-  let videoConstraints = {
-    facingMode: facingMode,
-    width: WIDTH,
-    height: HEIGHT,
-  };
-
-  const handleClick = React.useCallback(() => {
-    console.log("handleClick");
-    setFacingMode((prevState) =>
-      prevState === FACING_MODE_USER
-        ? FACING_MODE_ENVIRONMENT
-        : FACING_MODE_USER,
-    );
-  }, []);
 
   const startCapture = () => {
     setCapturing(true);
@@ -141,13 +115,13 @@ function App() {
             audio={false}
             ref={webcamRef}
             screenshotFormat="image/jpeg"
-            videoConstraints={videoConstraints}
+            width={640} // 顯示寬度
+            height={480} // 顯示高度
           />
-          <button onClick={handleClick}>Switch camera</button>
           {recognizedFaces.map((face, index) => {
             // 假設後端傳來的座標根據 320x240 的影像
-            const scaleX = WIDTH / RECOG_WIDTH;
-            const scaleY = HEIGHT / RECOG_HEIGHT;
+            const scaleX = 640 / 320;
+            const scaleY = 480 / 240;
             const top = face.location.top * scaleY;
             const left = face.location.left * scaleX;
             const width = (face.location.right - face.location.left) * scaleX;
