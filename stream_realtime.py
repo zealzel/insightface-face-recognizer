@@ -110,6 +110,8 @@ def main():
                 (0, 255, 0),
                 2,
             )
+            if best_name != "Unknown":
+                print("person", best_name)
 
         cv2.imshow("Face Recognition", frame)
         key = cv2.waitKey(delay) & 0xFF
