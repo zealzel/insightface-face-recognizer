@@ -46,7 +46,10 @@ def main():
     detection_interval = 0.2
     faces_detected = []
 
-    fa = FaceAnalysis(providers=["CoreMLExecutionProvider", "CPUExecutionProvider"])
+    # fa = FaceAnalysis(providers=["CoreMLExecutionProvider", "CPUExecutionProvider"])
+    fa = FaceAnalysis(
+        name="buffalo_s", providers=["CoreMLExecutionProvider", "CPUExecutionProvider"]
+    )
     fa.prepare(ctx_id=0, det_size=(640, 640))
 
     face_database = load_face_database()
